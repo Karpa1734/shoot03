@@ -303,6 +303,60 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 30230341}
   m_CullTransparentMesh: 1
+--- !u!1 &34776389
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 34776390}
+  - component: {fileID: 34776391}
+  m_Layer: 5
+  m_Name: UIManager2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &34776390
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 34776389}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 664314433}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &34776391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 34776389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f77b8c30d08a4ff4f82a5dc7b8b376a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hpSlider: {fileID: 206019758}
+  orangeSlider: {fileID: 1786414085}
+  barSmoothSpeed: 8
+  orangeSmoothSpeed: 1
+  nameText: {fileID: 265551096}
+  skillUIManager: {fileID: 1643219216}
 --- !u!1 &38727358
 GameObject:
   m_ObjectHideFlags: 0
@@ -1441,7 +1495,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 850, y: 420}
+  m_AnchoredPosition: {x: 850, y: 500}
   m_SizeDelta: {x: 510.4, y: 71.9}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &265551096
@@ -1491,15 +1545,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 60
-  m_fontSizeBase: 60
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
   m_HorizontalAlignment: 4
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 1024
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -1835,6 +1889,9 @@ MonoBehaviour:
   previewRadius: 5
   minOptimalDistance: 3
   maxOptimalDistance: 7
+  targetJitter: 1.5
+  magicCirclePrefab: {fileID: 1728782007391580753, guid: e62f1c33ea796a2479ea1b191ad8e55e, type: 3}
+  longPressThreshold: 0.3
   uiManager: {fileID: 1643219216}
 --- !u!114 &384195649
 MonoBehaviour:
@@ -1856,12 +1913,14 @@ MonoBehaviour:
   hpSlider: {fileID: 206019758}
   orangeSlider: {fileID: 1786414085}
   hpFillImage: {fileID: 1160723850}
+  nameText: {fileID: 265551096}
   barSmoothSpeed: 5
   orangeSmoothSpeed: 2
   orangeDelayTime: 0.6
   normalHpColor: {r: 0, g: 1, b: 1, a: 1}
   dangerHpColor: {r: 1, g: 0, b: 0, a: 1}
-  nameText: {fileID: 265551096}
+  leftUI: {fileID: 1569578425}
+  rightUI: {fileID: 34776391}
   visualSprite: {fileID: 368127501}
   normalSpeed: 5
   slowSpeed: 2
@@ -3108,11 +3167,12 @@ RectTransform:
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1781391783}
   - {fileID: 1788716601}
   - {fileID: 122826355}
   - {fileID: 566783139}
   - {fileID: 501821952}
+  - {fileID: 1569578424}
+  - {fileID: 34776390}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -6132,7 +6192,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 850, y: -420}
+  m_AnchoredPosition: {x: 850, y: -500}
   m_SizeDelta: {x: 510.4, y: 71.9}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1512761731
@@ -6182,15 +6242,15 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 60
-  m_fontSizeBase: 60
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 1024
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
@@ -6498,6 +6558,60 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1518087046}
   m_CullTransparentMesh: 1
+--- !u!1 &1569578423
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1569578424}
+  - component: {fileID: 1569578425}
+  m_Layer: 5
+  m_Name: UIManager1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1569578424
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1569578423}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 664314433}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1569578425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1569578423}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f77b8c30d08a4ff4f82a5dc7b8b376a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hpSlider: {fileID: 938793151}
+  orangeSlider: {fileID: 262938387}
+  barSmoothSpeed: 8
+  orangeSmoothSpeed: 1
+  nameText: {fileID: 1512761731}
+  skillUIManager: {fileID: 142108914}
 --- !u!1 &1570860237
 GameObject:
   m_ObjectHideFlags: 0
@@ -7297,41 +7411,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!1 &1781391782
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1781391783}
-  m_Layer: 5
-  m_Name: LifeBars
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!224 &1781391783
-RectTransform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1781391782}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 664314433}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
-  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1786414083
 GameObject:
   m_ObjectHideFlags: 0
@@ -7574,12 +7653,14 @@ MonoBehaviour:
   hpSlider: {fileID: 938793151}
   orangeSlider: {fileID: 262938387}
   hpFillImage: {fileID: 727636816}
+  nameText: {fileID: 1512761731}
   barSmoothSpeed: 5
   orangeSmoothSpeed: 2
   orangeDelayTime: 0.6
   normalHpColor: {r: 0, g: 1, b: 1, a: 1}
   dangerHpColor: {r: 1, g: 0, b: 0, a: 1}
-  nameText: {fileID: 1512761731}
+  leftUI: {fileID: 1569578425}
+  rightUI: {fileID: 34776391}
   visualSprite: {fileID: 673378184}
   normalSpeed: 5
   slowSpeed: 2
@@ -7705,6 +7786,9 @@ MonoBehaviour:
   previewRadius: 5
   minOptimalDistance: 3
   maxOptimalDistance: 7
+  targetJitter: 1.5
+  magicCirclePrefab: {fileID: 1728782007391580753, guid: e62f1c33ea796a2479ea1b191ad8e55e, type: 3}
+  longPressThreshold: 0.3
   uiManager: {fileID: 142108914}
 --- !u!1 &1841575005
 GameObject:

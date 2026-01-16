@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 073b203c75bdd0c49a811dbaad0bcd60, type: 3}
   m_Name: Player1
   m_EditorClassIdentifier: 
-  characterName: Chale
+  characterName: Chigira Chale
   characterSprite: {fileID: -5890890496200405625, guid: 320d1924faf5f4c4f84508a554bc3313, type: 3}
   personalColor: {r: 1, g: 1, b: 0, a: 1}
   normalSpeed: 5
@@ -34,10 +34,11 @@ MonoBehaviour:
         spreadAdd: 8
       rotationPerStep: 0
       useEvenOffset: 1
+      gapWidth: 20
       speedData:
-        default_: 5
+        default_: 4
         accuracy_: 0
-        max_: 5
+        max_: 4
       angleAccData:
         default_: 0
         accuracy_: 0
@@ -48,6 +49,7 @@ MonoBehaviour:
       spawnRadius: 0
     recastTime: 2
     skillIcon: {fileID: 21300000, guid: ac97f36b6d2d8c646907fd29f2085360, type: 3}
+    skillType: 0
     burstCount: 4
     burstInterval: 0.3
     fireType: 0
@@ -69,6 +71,7 @@ MonoBehaviour:
         spreadAdd: 0
       rotationPerStep: 0
       useEvenOffset: 1
+      gapWidth: 20
       speedData:
         default_: 5
         accuracy_: 0
@@ -83,6 +86,7 @@ MonoBehaviour:
       spawnRadius: 0.5
     recastTime: 1.5
     skillIcon: {fileID: 21300000, guid: 8db3062216b350c45a0c092149ca2990, type: 3}
+    skillType: 0
     burstCount: 1
     burstInterval: 0
     fireType: 0
@@ -92,6 +96,7 @@ MonoBehaviour:
     multiShotData: []
     recastTime: 0
     skillIcon: {fileID: 722710230537587795, guid: 8db3062216b350c45a0c092149ca2990, type: 3}
+    skillType: 0
     burstCount: 1
     burstInterval: 0.1
     fireType: 0
@@ -99,10 +104,11 @@ MonoBehaviour:
     firingSpeedMultiplier: 1
   shotV:
     multiShotData: []
-    recastTime: 0
-    skillIcon: {fileID: 0}
+    recastTime: 15
+    skillIcon: {fileID: 21300000, guid: 33b8b791c6733474e892247b9ab8f4c5, type: 3}
+    skillType: 1
     burstCount: 1
     burstInterval: 0.1
-    fireType: 0
-    isAutoRepeat: 1
-    firingSpeedMultiplier: 1
+    fireType: 1
+    isAutoRepeat: 0
+    firingSpeedMultiplier: 0.2

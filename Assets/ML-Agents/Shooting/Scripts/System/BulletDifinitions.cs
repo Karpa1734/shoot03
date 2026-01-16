@@ -67,14 +67,21 @@ public class ShotData
     [Header("Spawn Position Settings")]
     public float spawnRadius = 0f;
 }
+// enumはクラスの外に出しておくと参照が楽になります
 
+public enum SkillType { Normal, MagicCircle, RemoteBarrage } // ★ RemoteBarrage を追加
 
 [System.Serializable]
 public class AttackPattern
 {
-    public ShotData[] multiShotData; // ★ ここを配列にする
+    public ShotData[] multiShotData;
     public float recastTime;
-    public Sprite skillIcon; // ★追加：スキルのアイコン画像
+    public Sprite skillIcon;
+
+    [Header("Behavior Settings")]
+    // ★ 修正：変数名を小文字の skillType に変更して、型名との重複を避ける
+    public SkillType skillType = SkillType.Normal;
+
     [Header("Burst Settings")]
     public int burstCount = 1;
     public float burstInterval = 0.1f;
@@ -82,7 +89,6 @@ public class AttackPattern
     [Header("Input & Speed Settings")]
     public FireType fireType = FireType.Instant;
 
-    // ★ここを追加：リキャスト終了時に押しっぱなしで再発動するか
     [Tooltip("trueなら押しっぱなしで連射、falseなら押し直しが必要")]
     public bool isAutoRepeat = true;
 

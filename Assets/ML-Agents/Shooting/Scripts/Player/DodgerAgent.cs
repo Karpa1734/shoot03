@@ -14,15 +14,19 @@ public class DodgerAgent : Agent
 
 
     [Header("UI References")]
-    [SerializeField] private Slider hpSlider;
-    [SerializeField] private Slider orangeSlider; // ★追加：背後に置くオレンジ色のスライダー
-    [SerializeField] private Image hpFillImage;
+    public Slider hpSlider;
+    public Slider orangeSlider;
+    [SerializeField] private Image hpFillImage; // これは内部処理用なら private のままでOK
+    public TextMeshProUGUI nameText;
     [SerializeField] private float barSmoothSpeed = 8f;   // メインHPの速度（少し速め）
     [SerializeField] private float orangeSmoothSpeed = 1f; // ★追加：オレンジゲージの速度（ゆっくり）
     [SerializeField] private float orangeDelayTime = 0.6f;  // ★追加：減少が始まるまでの待機時間
     [SerializeField] private Color normalHpColor = Color.green;
     [SerializeField] private Color dangerHpColor = Color.red;
-    [SerializeField] private TextMeshProUGUI nameText; // ★キャラ名表示用
+
+    [Header("UI Binding Settings")]
+    [SerializeField] private PlayerUIDisplay leftUI;  // インスペクターで左固定のUIを指定
+    [SerializeField] private PlayerUIDisplay rightUI; // インスペクターで右固定のUIを指定
 
     [Header("Visual Settings")]
     public SpriteRenderer visualSprite;
@@ -45,7 +49,8 @@ public class DodgerAgent : Agent
     [Header("Life Settings")]
     public float maxHealth = 100f;
     private float currentHealth;
-    private float targetHpRatio = 1f; // ★目標とするHP割合(0.0~1.0)
+    // ★ targetHpRatio も public にするか、プロパティを作成して外部から読み取れるようにする
+    public float targetHpRatio { get; private set; } = 1f;
 
     [Header("Reward Weights")]
     public float survivalReward = 0.002f;
@@ -87,13 +92,6 @@ public class DodgerAgent : Agent
             // 1. パーソナルカラーをエージェントの基本色として保持
             normalColor = profile.personalColor;
 
-            // 2. 名前と色をUIに反映
-            if (nameText != null)
-            {
-                nameText.text = profile.characterName;
-                // ★追加：テキストの色をパーソナルカラーに変更
-                nameText.color = profile.personalColor;
-            }
 
             // 3. 速度やHPなどのステータスを反映
             normalSpeed = profile.normalSpeed;
@@ -111,27 +109,43 @@ public class DodgerAgent : Agent
         if (spawner == null) spawner = GetComponent<BulletSpawner>();
         bool isP1 = (spawner != null && spawner.myTeam == BulletSpawner.TeamSide.Player1);
 
-        // ★ チーム判定による色の固定（p1Color/p2Color）を廃止し、個別の色を適用
-        if (visualSprite != null) visualSprite.color = normalColor;
-
         // ★ 同期処理：同じフレーム内（エピソード開始時）に一度だけランダム判定を行う
         if (Time.frameCount != lastUpdateFrame)
         {
             isSideSwapped = (Random.value > 0.5f);
             lastUpdateFrame = Time.frameCount;
-
-            // P1側が代表して弾をクリアする
             if (BulletPool.Instance != null) BulletPool.Instance.ReturnAllBullets();
         }
 
-        // ★ シャッフル座標の計算
+        // ★ 自機の座標計算
         float offset = 6.0f;
         float startX;
-        if (isP1) startX = isSideSwapped ? offset : -offset;
-        else startX = isSideSwapped ? -offset : offset;
+        bool isActuallyOnLeft;
+
+        if (isP1)
+        {
+            startX = isSideSwapped ? offset : -offset;
+            isActuallyOnLeft = !isSideSwapped; // Swappedでなければ左
+        }
+        else
+        {
+            startX = isSideSwapped ? -offset : offset;
+            isActuallyOnLeft = isSideSwapped; // Swappedなら左
+        }
 
         transform.localPosition = new Vector3(startX, 0f, 0f);
         if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // ★ 参照先の切り替え実行
+        // 自分が左にいるなら左UIに、右にいるなら右UIに自分を紐付ける
+        if (isActuallyOnLeft)
+        {
+            if (leftUI != null) leftUI.Bind(this);
+        }
+        else
+        {
+            if (rightUI != null) rightUI.Bind(this);
+        }
 
         if (visualSprite != null) visualSprite.flipY = !isP1; //
 
@@ -145,7 +159,7 @@ public class DodgerAgent : Agent
         {
             visualSprite.flipY = (enemyTransform.position.x < transform.position.x);
         }
-
+        /*
         if (hpSlider != null && orangeSlider != null)
         {
             // 1. メインHPは常に滑らかに追従
@@ -167,7 +181,7 @@ public class DodgerAgent : Agent
             {
                 hpFillImage.color = (hpSlider.value <= 0.3f) ? dangerHpColor : normalHpColor;
             }
-        }
+        }*/
 
     }
 
@@ -562,22 +576,6 @@ public class DodgerAgent : Agent
         float oldRatio = targetHpRatio;
         targetHpRatio = currentHealth / maxHealth;
 
-        // ★ダメージを受けた（体力が減った）場合のみ、オレンジゲージの待機タイマーをリセット
-        if (targetHpRatio < oldRatio)
-        {
-            orangeDelayTimer = orangeDelayTime;
-        }
-        // ★回復した場合は、オレンジゲージも即座にメインHPへ追いつかせる（違和感防止）
-        else if (targetHpRatio > oldRatio)
-        {
-            orangeDelayTimer = 0;
-        }
-
-        if (immediate)
-        {
-            if (hpSlider != null) hpSlider.value = targetHpRatio;
-            if (orangeSlider != null) orangeSlider.value = targetHpRatio;
-            orangeDelayTimer = 0;
-        }
+       
     }
 }

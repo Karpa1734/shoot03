@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 073b203c75bdd0c49a811dbaad0bcd60, type: 3}
   m_Name: Player3
   m_EditorClassIdentifier: 
-  characterName: Bell
+  characterName: Tsuzuno Bell
   characterSprite: {fileID: -8385019883287296420, guid: 868d317e2326c4548b5815075561bb50, type: 3}
   personalColor: {r: 1, g: 0.5019608, b: 0, a: 1}
   normalSpeed: 5

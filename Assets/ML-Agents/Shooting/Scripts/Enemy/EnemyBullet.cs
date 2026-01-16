@@ -44,6 +44,8 @@ public class EnemyBullet : MonoBehaviour
     private int currentSortingOrder; // ★追加：現在の描画順を保持
     private bool isPreparing = false;
     private int prepFrameCount = 0;
+    private bool isClosing = false;    // 消滅演出中か
+    private int closeFrameCount = 0;   // 消滅演出のフレームカウンター
     private Vector3 originalLocalPos;
     private BulletSpawner mySpawner;
     // メンバ変数に追加
@@ -70,7 +72,7 @@ public class EnemyBullet : MonoBehaviour
         nextStepIndex = 0;
         framesSinceSpawn = 0; // Delayを含まないカウント開始
         currentSortingOrder = orderInLayer; // 描画順を保存
-
+        UpdateVelocityAndRotation();
         if (data != null && spriteRenderer != null)
         {
             deathEffectPrefab = data.deathEffectPrefab;
@@ -146,11 +148,30 @@ public class EnemyBullet : MonoBehaviour
 
         framesSinceSpawn++;
 
+        // --- A. 出現演出中 ---
         if (isPreparing)
         {
             UpdatePreparation();
             UpdateDelayVisuals();
             return;
+        }
+
+        // ★追加：B. 消滅演出中（逆再生）
+        if (isClosing)
+        {
+            UpdateClosing();
+            return;
+        }
+
+        // --- C. 通常の移動・寿命処理 ---
+        if (originData != null && originData.bulletLifespan > 0)
+        {
+            lifeTimer += Time.deltaTime;
+            if (lifeTimer >= originData.bulletLifespan)
+            {
+                Deactivate();
+                return;
+            }
         }
 
         // --- 1. 寿命（Lifespan）の処理 ---
@@ -232,19 +253,7 @@ public class EnemyBullet : MonoBehaviour
             else currentAngle += step.newAngleOffset;
         }
     }
-    private void UpdateVelocityAndRotation()
-    {
-        // 速度ベクトルの計算
-        float rad = currentAngle * Mathf.Deg2Rad;
-        velocity = new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0f) * currentSpeed;
 
-        // ★画像の向きを更新
-        if (shouldRotate)
-        {
-            // Unityの0度は右(X+)なので、上を向いたスプライトを合わせるために-90度する
-            transform.rotation = Quaternion.Euler(0, 0, currentAngle - 90f);
-        }
-    }
     private void CheckOutOfBounds()
     {
         Vector3 p = transform.position;
@@ -256,11 +265,63 @@ public class EnemyBullet : MonoBehaviour
     }
 
     // --- 既存の Deactivate メソッドを修正 ---
+    // ★修正：Deactivate を演出開始のトリガーにする
     public void Deactivate()
     {
-        // プールに戻る前にエフェクトを発生させる
+        if (isClosing) return;
+
+        // StartupEffect が設定されている場合のみ逆再生を行う
+        // (特定の弾だけ適用したい場合は、ここに originData.useReverseDeath などの判定を追加)
+        if (originData != null && originData.startupEffect.durationFrames > 0)
+        {
+            isClosing = true;
+            closeFrameCount = 0;
+
+            // 演出中は当たり判定を消す
+            if (circleCollider != null) circleCollider.enabled = false;
+            if (capsuleCollider != null) capsuleCollider.enabled = false;
+        }
+        else
+        {
+            ActualDeactivate(); // 演出がない場合は即座に消去
+        }
+    }
+
+    // ★追加：消滅演出（逆再生）の更新
+    private void UpdateClosing()
+    {
+        closeFrameCount++;
+        // 出現時の進行度 t を 1.0(終了) から 0.0(開始) へ向かわせる
+        float progress = 1.0f - ((float)closeFrameCount / originData.startupEffect.durationFrames);
+
+        // 既存の演出メソッドを逆向きの進行度で呼び出す
+        ApplyStartupEffect(progress);
+
+        // 演出終了
+        if (closeFrameCount >= originData.startupEffect.durationFrames)
+        {
+            ActualDeactivate();
+        }
+    }
+
+    // ★追加：最終的なプール返却処理
+    private void ActualDeactivate()
+    {
         SpawnDeathEffect();
+        isClosing = false;
         BulletPool.Instance.ReturnToPool(gameObject);
+    }
+
+    private void UpdateVelocityAndRotation()
+    {
+        float rad = currentAngle * Mathf.Deg2Rad;
+        velocity = new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0f) * currentSpeed;
+
+        // ★準備中だけでなく、消滅演出中も自動回転を停止する
+        if (shouldRotate && !isPreparing && !isClosing)
+        {
+            transform.rotation = Quaternion.Euler(0, 0, currentAngle - 90f);
+        }
     }
 
     private void UpdatePreparation()
