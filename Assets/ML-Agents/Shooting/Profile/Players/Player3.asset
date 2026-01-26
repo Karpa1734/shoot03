@@ -48,10 +48,23 @@ MonoBehaviour:
       launchAngleJitter: 0
       spawnRadius: 0
     recastTime: 1.5
+    specialGaugeGain: 2
     skillIcon: {fileID: 21300000, guid: b135c88a783c5cf49960ac8699231aeb, type: 3}
+    skillType: 0
+    useMovingFire: 0
+    movingFireSpeed: 3
+    movingFireDuration: 4
+    movingFireIntervalFrames: 15
     burstCount: 1
     burstInterval: 0.1
+    damage: 10
+    assaultPrefab: {fileID: 0}
+    assaultSpeed: 20
+    assaultDuration: 1.5
     fireType: 1
+    targetBottomY: 0
+    dodgeDuration: 0.5
+    dodgeSpeedMultiplier: 2
     isAutoRepeat: 0
     firingSpeedMultiplier: 1
   shotX:
@@ -84,27 +97,93 @@ MonoBehaviour:
       launchAngleJitter: 3
       spawnRadius: 1
     recastTime: 0.4
+    specialGaugeGain: 0.08
     skillIcon: {fileID: 21300000, guid: 8418e0cc577cacf45a5b1da4cae13fc1, type: 3}
+    skillType: 0
+    useMovingFire: 0
+    movingFireSpeed: 3
+    movingFireDuration: 4
+    movingFireIntervalFrames: 15
     burstCount: 1
     burstInterval: 0.1
+    damage: 10
+    assaultPrefab: {fileID: 0}
+    assaultSpeed: 20
+    assaultDuration: 1.5
     fireType: 0
+    targetBottomY: 0
+    dodgeDuration: 0.5
+    dodgeSpeedMultiplier: 2
     isAutoRepeat: 1
     firingSpeedMultiplier: 1
   shotC:
-    multiShotData: []
-    recastTime: 0
-    skillIcon: {fileID: 0}
+    multiShotData:
+    - bulletType: {fileID: 11400000, guid: 6577c1957c735884cacbe51ac08815d5, type: 2}
+      pattern: 2
+      angleType: 2
+      fixedAngle: 0
+      nWayCount: 0
+      nWaySpread: 0
+      RoundCount: 8
+      speedCount: 1
+      speedMax: 0
+      nWayExpand:
+        countAdd: 0
+        spreadAdd: 0
+      rotationPerStep: 0
+      useEvenOffset: 0
+      gapWidth: 0
+      speedData:
+        default_: 5
+        accuracy_: 0
+        max_: 0
+      angleAccData:
+        default_: 0
+        accuracy_: 0
+        max_: 0
+      launchDelay: 0
+      launchSpeedJitter: 0
+      launchAngleJitter: 0
+      spawnRadius: 0.3
+    recastTime: 8
+    specialGaugeGain: 2
+    skillIcon: {fileID: 21300000, guid: ab2515f88f44e694f818afbad734eeff, type: 3}
+    skillType: 2
+    useMovingFire: 1
+    movingFireSpeed: 3
+    movingFireDuration: 2
+    movingFireIntervalFrames: 15
     burstCount: 1
     burstInterval: 0.1
+    damage: 10
+    assaultPrefab: {fileID: 0}
+    assaultSpeed: 20
+    assaultDuration: 1.5
     fireType: 0
+    targetBottomY: 0
+    dodgeDuration: 0.5
+    dodgeSpeedMultiplier: 2
     isAutoRepeat: 1
     firingSpeedMultiplier: 1
   shotV:
     multiShotData: []
-    recastTime: 0
-    skillIcon: {fileID: 0}
+    recastTime: 15
+    specialGaugeGain: 2
+    skillIcon: {fileID: -2369818974511437487, guid: ea215dc3ec585c346aeff3e260eb3507, type: 3}
+    skillType: 4
+    useMovingFire: 0
+    movingFireSpeed: 3
+    movingFireDuration: 4
+    movingFireIntervalFrames: 15
     burstCount: 1
     burstInterval: 0.1
+    damage: 20
+    assaultPrefab: {fileID: 7754733889399115336, guid: b8f841f0c5ef0354682f1e90d8b07d3c, type: 3}
+    assaultSpeed: 7
+    assaultDuration: 9999
     fireType: 0
+    targetBottomY: 0
+    dodgeDuration: 0.5
+    dodgeSpeedMultiplier: 2
     isAutoRepeat: 1
     firingSpeedMultiplier: 1

@@ -1,23 +1,34 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 public class SkillUIManager : MonoBehaviour
 {
-    [SerializeField] private Image[] skillIconImages = new Image[4]; // UI上のImageコンポーネント
+    [SerializeField] private SkillIcon[] skillIcons = new SkillIcon[4];
 
-    public void SetupIcons(AttackPattern[] patterns)
+    public void SetupIcons(AttackPattern[] patterns, BulletSpawner spawner)
     {
         for (int i = 0; i < 4; i++)
         {
+            if (skillIcons[i] == null) continue;
+
             if (patterns[i] != null && patterns[i].skillIcon != null)
             {
-                skillIconImages[i].sprite = patterns[i].skillIcon;
-                skillIconImages[i].enabled = true;
+                skillIcons[i].gameObject.SetActive(true);
+                // ★ 修正：画像、番号、そして「データ元のスパナー」を渡す
+                skillIcons[i].Setup(patterns[i].skillIcon, i, spawner);
             }
             else
             {
-                skillIconImages[i].enabled = false; // アイコンがない場合は非表示
+                skillIcons[i].gameObject.SetActive(false);
             }
+        }
+    }
+
+    // ★ 追加：リキャストの参照先だけをサッと切り替えるためのメソッド
+    public void SetTargetSpawner(BulletSpawner spawner)
+    {
+        foreach (var icon in skillIcons)
+        {
+            if (icon != null) icon.SetTargetSpawner(spawner);
         }
     }
 }

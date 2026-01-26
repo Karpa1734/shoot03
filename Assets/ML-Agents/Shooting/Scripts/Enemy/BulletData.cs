@@ -19,6 +19,11 @@ public class BulletChangeStep
     public float newSpeedAcc;
     public float newAngleOffset; // 現在の角度に対するオフセット、または絶対角
     public bool isAbsoluteAngle = false;
+
+    [Header("Ultimate Knife Settings")]
+    public bool aimAtTarget;            // ONにすると変化した瞬間に敵の方向を向く
+    public BulletRotationMode newRotationMode; // 変化後の回転モード (Fixed, ConstantSpin等)
+    public float newSpinSpeed;          // 回転モードが ConstantSpin の時の速さ
 }
 public enum BulletStartupType { None, RotateX, RotateY, RotateZ, MoveX, MoveY, Scale }
 
@@ -32,8 +37,10 @@ public class BulletStartupEffect
     public int durationFrames; // 何フレームかけて変化させるか
 }
 // 出現時の演出タイプ
-public enum ColliderShape { Circle, Capsule } // 形状の定義
+public enum ColliderShape { Circle, Capsule, Cross } // ★追加 } // 形状の定義
 public enum FireType { Instant, OnRelease } // 発射タイプの定義
+// 既存の enum 等と同じ場所に定義
+public enum BulletRotationMode { FaceMovement, Fixed, ConstantSpin }
 [CreateAssetMenu(fileName = "NewBulletData", menuName = "Danmaku/BulletData")]
 public class BulletData : ScriptableObject
 {
@@ -53,11 +60,15 @@ public class BulletData : ScriptableObject
     public DelayColor delayColor;
     public bool isAdditive;// ★ 追加：予兆エフェクトを表示するかどうかのフラグ
     public bool useLaunchDelayEffect = true;
+    [Header("Rotation Settings")]
+    public BulletRotationMode rotationMode = BulletRotationMode.FaceMovement;
+    public float spinSpeed = 360f; // ConstantSpin の時の回転速度（度/秒）
 
     [Header("Collision Settings")] 
     public ColliderShape colliderShape = ColliderShape.Circle; // デフォルトは円
     public float colliderRadius = 0.1f;
     public float capsuleHeight = 1.0f;  // ★追加：カプセルの長さ（槍の長さに合わせる）
+    public CapsuleDirection2D capsuleDirection = CapsuleDirection2D.Vertical;
     public Vector2 colliderOffset = Vector2.zero;
 
     [Header("Visual Settings")]
@@ -72,6 +83,10 @@ public class BulletData : ScriptableObject
     public ShotData subShotData;                // 出現させる弾幕のデータ
     public int spawnIntervalFrames = 10;        // 何フレームごとに出現させるか
     public float bulletLifespan = -1f;          // 弾の寿命（-1なら無制限）
+
+    [Header("Special Attributes")]
+    [Tooltip("ONの場合、相手がスタン状態(stunTimer > 0)でも被弾判定が発生します")]
+    public bool isContinuousHit = false;
 
     [Header("Phase Changes")]
     [Tooltip("時間経過で変化するステップのリスト（実行順に並べること）")]

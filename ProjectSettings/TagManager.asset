@@ -13,6 +13,7 @@ TagManager:
   - Player_HitBox
   - Player1
   - Player2
+  - AssultObj
   layers:
   - Default
   - TransparentFX

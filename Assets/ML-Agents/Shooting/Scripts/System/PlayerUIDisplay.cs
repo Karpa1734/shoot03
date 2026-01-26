@@ -7,8 +7,15 @@ public class PlayerUIDisplay : MonoBehaviour
     [Header("HP Components")]
     public Slider hpSlider;
     public Slider orangeSlider;
-    [SerializeField] private float barSmoothSpeed = 8f;   // 補間速度をUI側で持つ
-    [SerializeField] private float orangeSmoothSpeed = 1f;
+    public Image hpFillImage; // ★インスペクターでHPバーの「Fill」画像をセット
+    [SerializeField] private float barSmoothSpeed = 8f;
+    [SerializeField] private float orangeSmoothSpeed = 1.2f;
+    [SerializeField] private float orangeDelayTime = 0.6f; // ダメージ後、オレンジが動き出すまでの時間
+
+    [Header("Color Settings")]
+    [SerializeField] private Color normalHpColor = new Color(0.2f, 1f, 0.2f); // 通常の緑
+    [SerializeField] private Color dangerHpColor = new Color(1f, 0.2f, 0.2f); // ピンチの赤
+    [SerializeField] private float dangerThreshold = 0.3f; // 30%以下でピンチ判定
 
     [Header("Text Components")]
     public TextMeshProUGUI nameText;
@@ -17,27 +24,32 @@ public class PlayerUIDisplay : MonoBehaviour
     public SkillUIManager skillUIManager;
 
     private DodgerAgent targetAgent;
+    private float orangeDelayTimer = 0f;
+    private float lastHpRatio = 1f;
 
     public void Bind(DodgerAgent agent)
     {
         targetAgent = agent;
         if (agent == null) return;
 
-        // ★ 修正：エージェントのインスペクター参照ではなく、Profileデータから直接取得する
+        // 初期化時に現在のHPを即座に反映
+        lastHpRatio = agent.targetHpRatio;
+        if (hpSlider) hpSlider.value = lastHpRatio;
+        if (orangeSlider) orangeSlider.value = lastHpRatio;
+
         BulletSpawner spawner = agent.GetComponent<BulletSpawner>();
         if (spawner != null && spawner.characterProfile != null)
         {
-            var profile = spawner.characterProfile;
-            if (nameText != null)
-            {
-                nameText.text = profile.characterName;
-                nameText.color = profile.personalColor;
-            }
-
-            // スキルアイコンの更新
             if (skillUIManager != null)
             {
-                skillUIManager.SetupIcons(spawner.GetAttackPatterns());
+                AttackPattern[] patterns = spawner.GetAttackPatterns();
+                skillUIManager.SetupIcons(patterns, spawner);
+            }
+
+            if (nameText != null)
+            {
+                nameText.text = spawner.characterProfile.characterName;
+                nameText.color = spawner.characterProfile.personalColor;
             }
         }
     }
@@ -46,16 +58,37 @@ public class PlayerUIDisplay : MonoBehaviour
     {
         if (targetAgent == null) return;
 
-        // ★ 修正：バインドされたエージェントの「HP割合」データを見て、自分のスライダーを動かす
+        float currentTargetRatio = targetAgent.targetHpRatio;
+
+        // 1. メインHPバーの更新
         if (hpSlider != null)
         {
-            hpSlider.value = Mathf.Lerp(hpSlider.value, targetAgent.targetHpRatio, Time.deltaTime * barSmoothSpeed);
+            hpSlider.value = Mathf.Lerp(hpSlider.value, currentTargetRatio, Time.deltaTime * barSmoothSpeed);
+
+            // ★ ピンチ判定：現在のゲージ量に合わせて色を変える
+            if (hpFillImage != null)
+            {
+                hpFillImage.color = (hpSlider.value <= dangerThreshold) ? dangerHpColor : normalHpColor;
+            }
         }
+
+        // 2. オレンジゲージの制御（ダメージを受けた時だけタイマーをリセット）
+        if (currentTargetRatio < lastHpRatio)
+        {
+            orangeDelayTimer = orangeDelayTime;
+        }
+        lastHpRatio = currentTargetRatio;
 
         if (orangeSlider != null)
         {
-            // オレンジ色のゲージも同様に補間（必要に応じて待機タイマーロジックもこちらに移せます）
-            orangeSlider.value = Mathf.Lerp(orangeSlider.value, targetAgent.targetHpRatio, Time.deltaTime * orangeSmoothSpeed);
+            if (orangeDelayTimer > 0)
+            {
+                orangeDelayTimer -= Time.deltaTime;
+            }
+            else
+            {
+                orangeSlider.value = Mathf.Lerp(orangeSlider.value, currentTargetRatio, Time.deltaTime * orangeSmoothSpeed);
+            }
         }
     }
 }

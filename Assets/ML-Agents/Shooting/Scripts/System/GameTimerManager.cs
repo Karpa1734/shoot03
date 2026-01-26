@@ -6,6 +6,7 @@ public class GameTimerManager : MonoBehaviour
     [Header("Timer Settings")]
     [SerializeField] private float initialTime = 30f;
     private float currentTime;
+    private bool isTimerStopped = false; // タイマー停止フラグ
 
     [Header("References")]
     [SerializeField] private TopUITimerDisplay timerUI;
@@ -20,32 +21,38 @@ public class GameTimerManager : MonoBehaviour
     public void ResetTimer()
     {
         currentTime = initialTime;
+        isTimerStopped = false; // フラグリセット
+
+        if (timerUI != null)
+        {
+            timerUI.UpdateTimer(currentTime);
+        }
     }
 
     void Update()
     {
-        // ★ IsTraining ではなく Academy.Instance.IsCommunicatorOn を使用
+        if (isTimerStopped) return; // 決着がついたら更新しない
+
         bool isTraining = Academy.Instance.IsCommunicatorOn;
 
         if (isTraining)
         {
-            // --- 1. AI学習中の処理：ステップ数に同期 ---
-            // MaxStepを「30秒」として扱い、進捗をUIに反映させる
             if (player1 != null && player1.MaxStep > 0)
             {
-                // 現在のステップ数と最大ステップ数から比率を出す
                 float ratio = 1f - ((float)player1.StepCount / player1.MaxStep);
                 currentTime = ratio * initialTime;
-
                 if (timerUI != null) timerUI.UpdateTimer(currentTime);
-
-                // 学習中は DodgerAgent 内部の MaxStep 到達判定で 
-                // EndEpisode が呼ばれるため、ここでは EndEpisode を呼ばない
             }
         }
         else
         {
-            // --- 2. 通常プレイ時の処理：実時間に同期 ---
+            // ラウンド開始前は待機
+            if (player1 != null && !player1.IsRoundActive)
+            {
+                if (timerUI != null) timerUI.UpdateTimer(currentTime);
+                return;
+            }
+
             if (currentTime > 0)
             {
                 currentTime -= Time.deltaTime;
@@ -62,18 +69,69 @@ public class GameTimerManager : MonoBehaviour
     private void TimeUp()
     {
         currentTime = 0;
+        isTimerStopped = true; // タイマー更新を止める
+        if (timerUI != null) timerUI.UpdateTimer(0f);
 
-        if (timerUI != null)
+        // 1. 弾幕をすべて消去
+        ClearAllBullets();
+
+        // 2. 勝敗判定（HP比較）
+        string resultMessage = "";
+        float hp1 = player1.CurrentHealth;
+        float hp2 = player2.CurrentHealth;
+
+        if (hp1 > hp2)
         {
-            timerUI.UpdateTimer(0f);
+            resultMessage = $"{player1.CharacterName} Wins!";
+        }
+        else if (hp2 > hp1)
+        {
+            resultMessage = $"{player2.CharacterName} Wins!";
+        }
+        else
+        {
+            resultMessage = "Draw";
         }
 
-        Debug.Log("タイムアップ！ステップを終了します。");
+        Debug.Log($"タイムアップ！結果: {resultMessage}");
 
-        // 両方のエージェントに終了を通知（EndEpisode を呼ぶと OnEpisodeBegin が走る）
-        if (player1 != null) player1.EndEpisode();
-        if (player2 != null) player2.EndEpisode();
+        // 3. 操作不能にして結果表示
+        // DodgerAgent側の終了処理メソッドを呼び出す
+        player1.ShowMatchResult(resultMessage);
+        player2.ShowMatchResult(resultMessage);
+    }
 
-        ResetTimer();
+    public void ClearAllBullets()
+    {
+        // 1. プール内の弾をすべて回収
+        if (BulletPool.Instance != null)
+        {
+            BulletPool.Instance.ReturnAllBullets();
+        }
+
+        // 2. タグによる削除（確実にタグが付いているもの）
+        GameObject[] bullets = GameObject.FindGameObjectsWithTag("Enemy_Bullet");
+        foreach (var b in bullets)
+        {
+            var eb = b.GetComponent<EnemyBullet>();
+            if (eb != null) eb.Deactivate(); // プールへ戻す
+            else Destroy(b); // スクリプトがない場合は直接削除
+        }
+
+        // 3. ★レイヤーによる念押し削除
+        // Player1_Bullet と Player2_Bullet レイヤーに属するものをすべて消す
+        int p1Layer = LayerMask.NameToLayer("Player1_Bullet");
+        int p2Layer = LayerMask.NameToLayer("Player2_Bullet");
+
+        GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>();
+        foreach (GameObject obj in allObjects)
+        {
+            if (obj.layer == p1Layer || obj.layer == p2Layer)
+            {
+                var eb = obj.GetComponent<EnemyBullet>();
+                if (eb != null) eb.Deactivate();
+                else Destroy(obj);
+            }
+        }
     }
 }

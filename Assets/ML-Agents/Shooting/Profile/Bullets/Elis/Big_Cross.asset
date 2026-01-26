@@ -14,23 +14,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   fireType: 0
   bulletName: Cross_Purple
-  bulletSprite: {fileID: -1275874047, guid: 27c69efabcd4e7f4ca4e9bfbfd9b7f1c, type: 3}
+  bulletSprite: {fileID: 547038566, guid: a32f52c8a2d9eeb4a80cc51b9ad5236d, type: 3}
   deathEffectPrefab: {fileID: 1789245602446957592, guid: 7476b93536ca65d46bfda9dd5a92ea0a, type: 3}
   sizeCategory: 0
-  damage: 20
+  damage: 30
   delayColor: 6
   isAdditive: 0
   useLaunchDelayEffect: 1
-  colliderShape: 1
+  rotationMode: 1
+  spinSpeed: 360
+  colliderShape: 2
   colliderRadius: 0.1
   capsuleHeight: 2
+  capsuleDirection: 0
   colliderOffset: {x: 0, y: 0}
   localScale: {x: 1, y: 1, z: 1}
   startupEffect:
     type: 2
     startValue: 90
     endValue: 0
-    durationFrames: 20
+    durationFrames: 10
   spawnSubBullets: 0
   subShotData:
     bulletType: {fileID: 11400000, guid: 71a1dd69aead20a4bb07c889b8212b4f, type: 2}

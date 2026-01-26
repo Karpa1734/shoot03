@@ -15,6 +15,9 @@ public class EnemyBullet : MonoBehaviour
     [SerializeField] private Material additiveMaterial; // 加算用マテリアル
     private Material defaultMaterial;
 
+    private BulletRotationMode rotationMode;
+    private float spinSpeed;
+
     // Parameters set by spawner
     private float currentSpeed;
     private float speedAcc;
@@ -34,6 +37,7 @@ public class EnemyBullet : MonoBehaviour
     [Header("Collision Components")]
     [SerializeField] private CircleCollider2D circleCollider;
     [SerializeField] private CapsuleCollider2D capsuleCollider; // ★追加
+    [SerializeField] private PolygonCollider2D polygonCollider; // ★追加：多角形コライダー
     // internal
     private Vector3 velocity = Vector3.zero;
     private Vector3 lastVelocity = Vector3.zero;
@@ -43,24 +47,32 @@ public class EnemyBullet : MonoBehaviour
     private int framesSinceSpawn = 0; // float timeSinceSpawn から変更
     private int currentSortingOrder; // ★追加：現在の描画順を保持
     private bool isPreparing = false;
-    private int prepFrameCount = 0;
     private bool isClosing = false;    // 消滅演出中か
-    private int closeFrameCount = 0;   // 消滅演出のフレームカウンター
+                                       // --- 変数定義の変更 ---
+    private float prepTimer = 0f;   // int prepFrameCount から変更
+    private float closeTimer = 0f;  // int closeFrameCount から変更
     private Vector3 originalLocalPos;
     private BulletSpawner mySpawner;
     // メンバ変数に追加
     private BulletSpawner.TeamSide myTeam;
+
+    // ★追加：外部からチーム情報を取得するための公開プロパティ
+    public BulletSpawner.TeamSide Team => myTeam;
     // Expose for Agent observation
     public Vector3 Velocity => velocity;
     public Vector3 Acceleration => _calculatedAcceleration;
     // 外部（PlayerHealth）からダメージ量を読み取るためのプロパティ
     public int DamageValue => (originData != null) ? originData.damage : 1;// EnemyBullet.cs 内の推奨修正
+                                                                           // ★追加：連続ヒット属性を持っているか外部から参照するためのプロパティ
+    public bool IsContinuousHit => (originData != null) ? originData.isContinuousHit : false;
+
     private float subSpawnTimer = 0f;
     void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         if (circleCollider == null) circleCollider = GetComponent<CircleCollider2D>();
         if (capsuleCollider == null) capsuleCollider = GetComponent<CapsuleCollider2D>();
+        if (polygonCollider == null) polygonCollider = GetComponent<PolygonCollider2D>(); // ★追加
         if (spriteRenderer != null) defaultMaterial = spriteRenderer.material;
     }
 
@@ -80,50 +92,81 @@ public class EnemyBullet : MonoBehaviour
             spriteRenderer.sortingLayerName = "Middle";
             spriteRenderer.sortingOrder = currentSortingOrder;
             transform.localScale = data.localScale;
-
+            // ★回転モードとスピードをデータから受け取る
+            this.rotationMode = data.rotationMode;
+            this.spinSpeed = data.spinSpeed;
             // 加算合成の適用
             spriteRenderer.material = (data.isAdditive && additiveMaterial != null) ? additiveMaterial : defaultMaterial;
 
-            // --- 当たり判定のパターン分け ---
+            // --- ここから当たり判定の個別設定 ---
             if (data.colliderShape == ColliderShape.Circle)
             {
-                // 円形コライダーの設定
                 if (circleCollider != null)
                 {
                     circleCollider.enabled = true;
+                    // ★重要：データの半径を反映（これがないと全部同じ大きさになる）
                     circleCollider.radius = data.colliderRadius;
-                    circleCollider.offset = data.colliderOffset;
                 }
-                // カプセル型は無効化
                 if (capsuleCollider != null) capsuleCollider.enabled = false;
+                if (polygonCollider != null) polygonCollider.enabled = false;
             }
             else if (data.colliderShape == ColliderShape.Capsule)
             {
-                // カプセル型コライダーの設定（槍などの細長い弾用）
                 if (capsuleCollider != null)
                 {
                     capsuleCollider.enabled = true;
-                    // Width = 半径の2倍, Height = 設定された高さ
-                    capsuleCollider.size = new Vector2(data.colliderRadius * 2f, data.capsuleHeight);
+
+                    // ★ カプセルのサイズを計算
+                    // 半径(radius)を幅として扱い、capsuleHeight を長さとして適用します
+                    float width = data.colliderRadius * 2f;
+                    float height = data.capsuleHeight;
+
+                    // ★ 方向とサイズをセット
+                    capsuleCollider.direction = data.capsuleDirection;
+                    capsuleCollider.size = new Vector2(width, height);
+
+                    // オフセットも反映
                     capsuleCollider.offset = data.colliderOffset;
-                    // 槍のスプライト向き（上向き想定）に合わせて Vertical(縦) に固定
-                    capsuleCollider.direction = CapsuleDirection2D.Vertical;
                 }
-                // 円形は無効化
                 if (circleCollider != null) circleCollider.enabled = false;
+                if (polygonCollider != null) polygonCollider.enabled = false;
+            }
+            else if (data.colliderShape == ColliderShape.Cross)
+            {
+                if (polygonCollider != null)
+                {
+                    polygonCollider.enabled = true;
+                    // PolygonCollider2D は形状が複雑なため、
+                    // 基本的にはプレハブ側で設定した形状がそのまま使われます
+                }
+                if (circleCollider != null) circleCollider.enabled = false;
+                if (capsuleCollider != null) capsuleCollider.enabled = false;
             }
         }
 
         // 出現演出（Startup Effect）の初期化
         if (data != null && data.startupEffect.durationFrames > 0)
         {
-            isPreparing = true;
-            prepFrameCount = 0;
+            isPreparing = true; 
+            prepTimer = 0f;
+            closeTimer = 0f;
             ApplyStartupEffect(0f); // 初期状態を適用
         }
         else
         {
             isPreparing = false;
+        }
+
+
+        // 初期角度に基づいて一度向きをリセット
+        if (rotationMode == BulletRotationMode.FaceMovement)
+        {
+            transform.rotation = Quaternion.Euler(0, 0, currentAngle - 90f);
+        }
+        else if (rotationMode == BulletRotationMode.Fixed)
+        {
+            // 固定の場合は、データの localScale 等と一緒に設定された初期角度を守る
+            // 必要に応じて transform.rotation = Quaternion.Euler(0, 0, data.fixedVisualAngle); 等
         }
 
         // 移動パラメータ初期化
@@ -138,7 +181,7 @@ public class EnemyBullet : MonoBehaviour
         subSpawnFrameCounter = 0; // カウンターをリセット
         lifeTimer = 0f;           // 寿命タイマーをリセット
 
-        Debug.Log($"[Bullet Setup] Shape: {data.colliderShape}, Speed: {currentSpeed}, Order: {currentSortingOrder}");
+        //Debug.Log($"[Bullet Setup] Shape: {data.colliderShape}, Speed: {currentSpeed}, Order: {currentSortingOrder}");
 
         UpdateVelocityAndRotation();
     }
@@ -162,7 +205,20 @@ public class EnemyBullet : MonoBehaviour
             UpdateClosing();
             return;
         }
+        // ★追加：多段変化（ステップ変化）の実行判定
+        if (originData != null && nextStepIndex < originData.changeSteps.Count)
+        {
+            // 次のステップのデータを取得
+            var nextStep = originData.changeSteps[nextStepIndex];
 
+            // 設定されたフレーム数に到達したか判定
+            // (BulletChangeStep クラスに time または durationFrames という変数がある想定です)
+            if (framesSinceSpawn >= nextStep.time)
+            {
+                ApplyNextStep(nextStep);
+                nextStepIndex++;
+            }
+        }
         // --- C. 通常の移動・寿命処理 ---
         if (originData != null && originData.bulletLifespan > 0)
         {
@@ -252,6 +308,30 @@ public class EnemyBullet : MonoBehaviour
             if (step.isAbsoluteAngle) currentAngle = step.newAngleOffset;
             else currentAngle += step.newAngleOffset;
         }
+
+        // ★追加：回転モードとスピン速度の更新
+        this.rotationMode = step.newRotationMode;
+        this.spinSpeed = step.newSpinSpeed;
+
+        if (step.changeTrajectory)
+        {
+            currentSpeed = step.newSpeed;
+            speedAcc = step.newSpeedAcc;
+
+            // ★追加：ターゲットへの再照準
+            if (step.aimAtTarget && mySpawner != null && mySpawner.Target != null)
+            {
+                Vector2 dir = mySpawner.Target.position - transform.position;
+                currentAngle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            }
+            else
+            {
+                if (step.isAbsoluteAngle) currentAngle = step.newAngleOffset;
+                else currentAngle += step.newAngleOffset;
+            }
+        }
+        UpdateVelocityAndRotation();
+
     }
 
     private void CheckOutOfBounds()
@@ -270,46 +350,52 @@ public class EnemyBullet : MonoBehaviour
     {
         if (isClosing) return;
 
-        // StartupEffect が設定されている場合のみ逆再生を行う
-        // (特定の弾だけ適用したい場合は、ここに originData.useReverseDeath などの判定を追加)
         if (originData != null && originData.startupEffect.durationFrames > 0)
         {
             isClosing = true;
-            closeFrameCount = 0;
+            closeTimer = 0;
 
-            // 演出中は当たり判定を消す
+            // 演出中はすべてのコライダーを消す
             if (circleCollider != null) circleCollider.enabled = false;
             if (capsuleCollider != null) capsuleCollider.enabled = false;
+            if (polygonCollider != null) polygonCollider.enabled = false; // ★追加
         }
         else
         {
-            ActualDeactivate(); // 演出がない場合は即座に消去
+            ActualDeactivate();
         }
     }
 
     // ★追加：消滅演出（逆再生）の更新
     private void UpdateClosing()
     {
-        closeFrameCount++;
-        // 出現時の進行度 t を 1.0(終了) から 0.0(開始) へ向かわせる
-        float progress = 1.0f - ((float)closeFrameCount / originData.startupEffect.durationFrames);
+        closeTimer += Time.deltaTime; //
 
-        // 既存の演出メソッドを逆向きの進行度で呼び出す
+        float durationSeconds = originData.startupEffect.durationFrames / 60f;
+        float progress = 1.0f - Mathf.Clamp01(closeTimer / durationSeconds);
+
         ApplyStartupEffect(progress);
 
-        // 演出終了
-        if (closeFrameCount >= originData.startupEffect.durationFrames)
+        if (closeTimer >= durationSeconds)
         {
             ActualDeactivate();
         }
     }
 
     // ★追加：最終的なプール返却処理
+    // EnemyBullet.cs
+
+    // ★修正：消滅演出を経ていない場合のみエフェクトを出すように変更
     private void ActualDeactivate()
     {
-        SpawnDeathEffect();
-        isClosing = false;
-        BulletPool.Instance.ReturnToPool(gameObject);
+        // isClosing が false の場合（演出を介さず即座に消えた場合）のみエフェクトを発生
+        if (!isClosing)
+        {
+            SpawnDeathEffect(); //
+        }
+
+        isClosing = false; // フラグをリセット
+        BulletPool.Instance.ReturnToPool(gameObject); // プールに返却
     }
 
     private void UpdateVelocityAndRotation()
@@ -317,24 +403,44 @@ public class EnemyBullet : MonoBehaviour
         float rad = currentAngle * Mathf.Deg2Rad;
         velocity = new Vector3(Mathf.Cos(rad), Mathf.Sin(rad), 0f) * currentSpeed;
 
-        // ★準備中だけでなく、消滅演出中も自動回転を停止する
-        if (shouldRotate && !isPreparing && !isClosing)
+        // 演出中（Startup/Closing）は独自の回転ロジック（ApplyStartupEffect）があるため、通常回転はスキップ
+        if (isPreparing || isClosing) return;
+
+        // ★リクエスト通り、場合分け（switch）で処理を切り分ける
+        switch (rotationMode)
         {
-            transform.rotation = Quaternion.Euler(0, 0, currentAngle - 90f);
+            case BulletRotationMode.FaceMovement:
+                // 進行方向を向く（従来の挙動）
+                transform.rotation = Quaternion.Euler(0, 0, currentAngle - 90f);
+                break;
+
+            case BulletRotationMode.ConstantSpin:
+                // 常に自転する（コインやノコギリ状の弾など）
+                transform.Rotate(0, 0, spinSpeed * Time.deltaTime);
+                break;
+
+            case BulletRotationMode.Fixed:
+                // 移動方向にかかわらず向きを固定（岩やブロックなどの弾）
+                // 何もしない（初期設定の角度を維持）
+                break;
         }
     }
-
     private void UpdatePreparation()
     {
-        prepFrameCount++;
-        float progress = (float)prepFrameCount / originData.startupEffect.durationFrames;
+        if (originData == null) return;
+
+        prepTimer += Time.deltaTime; // フレーム加算から秒数加算へ
+
+        // 秒数換算での進行度計算 (60fps想定のデータなら 60 で割る)
+        float durationSeconds = originData.startupEffect.durationFrames / 60f;
+        float progress = Mathf.Clamp01(prepTimer / durationSeconds);
 
         ApplyStartupEffect(progress);
 
-        if (prepFrameCount >= originData.startupEffect.durationFrames)
+        if (prepTimer >= durationSeconds)
         {
             isPreparing = false;
-            // 準備完了後に回転などをリセットしたい場合はここで調整
+            prepTimer = 0f;
         }
     }
 

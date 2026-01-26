@@ -32,21 +32,29 @@ public class BulletSpawner : MonoBehaviour
     // 敵座標への正確な位置ではなく、ぶれ（ジッター）の範囲
     [SerializeField] private float targetJitter = 1.5f;
     private Vector3[] remoteTargets = new Vector3[4];
-
+    public Transform Target => target; // ★ 外部からターゲットを参照可能にする
     [Header("Magic Circle Settings")]
     public GameObject magicCirclePrefab;
     public float longPressThreshold = 0.3f; // 長押しと判定する秒数
     private float[] holdTimers = new float[4]; // 各スキルの押し時間を計測
 
+    [Header("Auto Fire Settings")]
+    [SerializeField] private float maxChargeHoldTime = 2.0f; // 最大チャージ後に保持できる秒数
+    private float[] chargeHoldTimers = new float[4];        // 各スキルの保持時間を計測
+
+    private float currentDodgeSpeedMultiplier = 1f; // 現在の回避による速度倍率
+    private float dodgeActiveTimer = 0f;             // 回避の残り時間
+
     private bool[] isLaunchedBurst = new bool[4]; // 現在のバーストが射出モードかどうかを保持
 
-    private AttackPattern[] attackPatterns = new AttackPattern[4];
-    private float[] recastTimers = new float[4];
+    [Header("Special Gauge Settings")]
+    [SerializeField] private SpecialGaugeManager gaugeManager; 
+    [Tooltip("このスキルを使用した時に増加するスペシャルゲージの量")]
+
     private Transform target;
     private int[] burstRemain = new int[4];
     private float[] burstIntervalTimers = new float[4];
     private bool[] isFiringBurst = new bool[4];
-    private bool[] isInputHeld = new bool[4];
 
     private bool[] isCharging = new bool[4];
     private float[] currentFanAngles = new float[4];
@@ -54,12 +62,19 @@ public class BulletSpawner : MonoBehaviour
     private static int largeCounter = 1000;
     private static int middleCounter = 6000;
     private static int smallCounter = 11000;
+    // --- 変数宣言部に追加 ---
 
+    private AttackPattern[] attackPatterns = new AttackPattern[5];
+    private float[] recastTimers = new float[5];
+    private bool[] isInputHeld = new bool[5];
+
+    private float[] fixedChargeAngles = new float[4]; // チャージ開始時に固定した角度を保持
     private MagicCircle[] activeCircles = new MagicCircle[4];
     private float[] moveTimers = new float[4]; // ★ 移動開始からの経過時間を計測用
+    private DodgerAgent myAgent;
+
+
     // BulletSpawner.cs 内に追加
-    [SerializeField] private SkillUIManager uiManager;
-    public static BulletSpawner Instance { get; private set; }
     public AttackPattern[] GetAttackPatterns()
     {
         return attackPatterns;
@@ -67,36 +82,42 @@ public class BulletSpawner : MonoBehaviour
 
     private void Awake()
     {
-        Instance = this;
     }
-
+    public void SetTarget(Transform newTarget)
+    {
+        target = newTarget;
+    }
     private void Start()
     {
+        myAgent = GetComponent<DodgerAgent>(); // エージェントへの参照を取得
         if (characterProfile != null)
         {
             attackPatterns[0] = characterProfile.shotZ;
             attackPatterns[1] = characterProfile.shotX;
             attackPatterns[2] = characterProfile.shotC;
             attackPatterns[3] = characterProfile.shotV;
+            attackPatterns[4] = characterProfile.shotZ;
         }
 
-        // 64行目付近
         for (int i = 0; i < 4; i++)
         {
-            // multiShotData[0] を参照するように変更
             if (attackPatterns[i] != null && attackPatterns[i].multiShotData != null && attackPatterns[i].multiShotData.Length > 0)
                 currentFanAngles[i] = attackPatterns[i].multiShotData[0].nWaySpread;
         }
-        if (uiManager != null)
-        {
-            uiManager.SetupIcons(attackPatterns); // スキル配列を渡してアイコンをセット
-        }
+
         gameObject.layer = LayerMask.NameToLayer(myTeam.ToString());
         FindTarget();
     }
 
     private void Update()
     {
+        if (myAgent != null && !myAgent.IsRoundActive)
+        {
+            var rb = GetComponent<Rigidbody2D>();
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+            return;
+        }
+
         bool anyCharging = false;
         int chargingIndex = -1;
 
@@ -108,10 +129,36 @@ public class BulletSpawner : MonoBehaviour
 
             UpdateFanAngleValues(i);
 
+            // ★ チャージ中の処理を強化
             if (isCharging[i])
             {
                 anyCharging = true;
                 chargingIndex = i;
+
+                // チャージ進捗が 1.0 (最大) に達しているか確認
+                if (GetFanAngleProgress(i) >= 1.0f)
+                {
+                    // 最大チャージ状態の時間を加算
+                    chargeHoldTimers[i] += Time.deltaTime;
+
+                    // 設定時間を超えたら自動発射
+                    if (chargeHoldTimers[i] >= maxChargeHoldTime)
+                    {
+                        isCharging[i] = false;
+                        chargeHoldTimers[i] = 0f;
+                        StartBurst(i);
+                    }
+                }
+                else
+                {
+                    // チャージ途中の場合はタイマーをリセット
+                    chargeHoldTimers[i] = 0f;
+                }
+            }
+            else
+            {
+                // チャージしていないスロットのタイマーをリセット
+                chargeHoldTimers[i] = 0f;
             }
 
             if (isFiringBurst[i])
@@ -127,24 +174,52 @@ public class BulletSpawner : MonoBehaviour
             }
         }
 
+        // --- 以下、FanVisualizer や 回避タイマーの処理はそのまま ---
         if (anyCharging && fanVisualizer != null)
         {
-            // 配列の 0 番目のデータが存在するかチェックして実行
-            if (attackPatterns[chargingIndex].multiShotData != null && attackPatterns[chargingIndex].multiShotData.Length > 0)
+            if (attackPatterns[chargingIndex].multiShotData.Length > 0)
             {
-                // shotData を multiShotData[0] に変更
-                float baseAngle = CalculateAngle(attackPatterns[chargingIndex].multiShotData[0], transform.position);
+                // ★修正：CalculateLocalAngle を呼ばず、固定済みの角度を使用する
+                float angleToUse = fixedChargeAngles[chargingIndex];
 
-                // 描画処理を実行
-                fanVisualizer.DrawFan(baseAngle, currentFanAngles[chargingIndex], previewRadius);
+                // ステップ回転（必要なら加算。通常は0でOK）
+                angleToUse += attackPatterns[chargingIndex].multiShotData[0].rotationPerStep * 0;
+
+                fanVisualizer.DrawFan(angleToUse, currentFanAngles[chargingIndex], previewRadius);
             }
         }
         else if (fanVisualizer != null)
         {
-            fanVisualizer.Hide(); //
+            fanVisualizer.Hide();
+        }
+
+        // 回避タイマーの更新
+        if (dodgeActiveTimer > 0)
+        {
+            dodgeActiveTimer -= Time.deltaTime;
+            if (dodgeActiveTimer <= 0)
+            {
+                currentDodgeSpeedMultiplier = 1f; // 速度を戻す
+
+                // ★追加：エージェントに回避アクション終了を通知
+                DodgerAgent agent = GetComponent<DodgerAgent>();
+                if (agent != null)
+                {
+                    agent.EndDodgeAction();
+                }
+            }
         }
     }
-
+    private float CalculateLocalAngle(ShotData data)
+    {
+        if (data.angleType == ShotData.AngleType.AimAtPlayer && target != null)
+        {
+            // 親（TrainingArea等）の中での相対座標でベクトルを出す
+            Vector2 relativeDir = target.localPosition - transform.localPosition;
+            return Mathf.Atan2(relativeDir.y, relativeDir.x) * Mathf.Rad2Deg;
+        }
+        return (data.angleType == ShotData.AngleType.Random) ? Random.Range(0f, 360f) : data.fixedAngle;
+    }
     // 123行目付近
     private void UpdateFanAngleValues(int i)
     {
@@ -177,6 +252,12 @@ public class BulletSpawner : MonoBehaviour
     public bool IsCharging(int index) => isCharging[index];
     public void UpdateInputState(int attackAction)
     {
+        // アクション5（Dキー）が入力された際の処理
+        if (attackAction == 5 && !isInputHeld[4])
+        {
+            ExecuteSpecialMove();
+        }
+
         for (int i = 0; i < 4; i++)
         {
             if (attackPatterns[i] == null) continue;
@@ -187,14 +268,32 @@ public class BulletSpawner : MonoBehaviour
             // --- A. 魔方陣（自機/移動）スキルの場合 ---
             if (attackPatterns[i].skillType == SkillType.MagicCircle)
             {
-                if (currentlyPressed) holdTimers[i] += Time.deltaTime;
-
-                if (!currentlyPressed && wasPressed && recastTimers[i] <= 0 && !isFiringBurst[i])
+                // 1. 押した瞬間：半分展開(1.5f)で生成
+                if (currentlyPressed && !wasPressed && recastTimers[i] <= 0)
                 {
-                    // 離した瞬間にモードを決定し、バースト開始
-                    isLaunchedBurst[i] = (holdTimers[i] >= longPressThreshold);
-                    StartBurst(i);
-                    holdTimers[i] = 0;
+                    GameObject circleObj = Instantiate(magicCirclePrefab, transform.position, Quaternion.identity);
+                    activeCircles[i] = circleObj.GetComponent<MagicCircle>();// ★追加：データ側からゲージを増やす
+                    if (gaugeManager != null)
+                    {
+                        gaugeManager.IncreaseGauge(attackPatterns[i].specialGaugeGain);
+                    }
+                    if (activeCircles[i] != null)
+                    {
+                        Color pColor = (characterProfile != null) ? characterProfile.personalColor : Color.white;
+                        activeCircles[i].Initialize(pColor, myTeam);
+
+                        // 敵の方向に合わせて向きを決定
+                        int dir = (target != null && target.position.x > transform.position.x) ? 1 : -1;
+                        activeCircles[i].StartManualMove(dir, 1.5f);
+                    }
+                }
+
+                // 2. 離した瞬間：その場で完全展開(2.5f)
+                if (!currentlyPressed && wasPressed && activeCircles[i] != null)
+                {
+                    activeCircles[i].DeployAtCurrentPosition(2.5f, 3.0f);
+                    recastTimers[i] = attackPatterns[i].recastTime; // 離したときにリキャスト開始
+                    activeCircles[i] = null;
                 }
             }
             // --- B. 遠隔弾幕スキルの場合 ---
@@ -206,18 +305,32 @@ public class BulletSpawner : MonoBehaviour
                     StartBurst(i);
                 }
             }
+            else if (attackPatterns[i].skillType == SkillType.Dodge)
+            {
+                if (currentlyPressed && !wasPressed && recastTimers[i] <= 0)
+                {
+                    ExecuteDodge(i);
+                }
+            }
             // --- B. 通常スキルの場合（Zキーなどの修正版） ---
             else
             {
                 if (currentlyPressed)
                 {
-                    // ★ 修正：発射中 (!isFiringBurst) でないことも条件に加え、リキャスト消失を防止
                     bool triggerInput = !wasPressed || (attackPatterns[i].isAutoRepeat && recastTimers[i] <= 0 && !isFiringBurst[i]);
 
                     if (triggerInput && recastTimers[i] <= 0 && !isFiringBurst[i] && !isCharging[i])
                     {
                         if (attackPatterns[i].fireType == FireType.Instant) StartBurst(i);
-                        else if (attackPatterns[i].fireType == FireType.OnRelease) isCharging[i] = true;
+                        else if (attackPatterns[i].fireType == FireType.OnRelease)
+                        {
+                            isCharging[i] = true;
+                            // ★追加：チャージ開始時の相対角度を固定する
+                            if (attackPatterns[i].multiShotData.Length > 0)
+                            {
+                                fixedChargeAngles[i] = CalculateLocalAngle(attackPatterns[i].multiShotData[0]);
+                            }
+                        }
                     }
                 }
 
@@ -233,82 +346,72 @@ public class BulletSpawner : MonoBehaviour
             }
             isInputHeld[i] = currentlyPressed;
         }
-    }
-    // 旧 DeployMagicCircle と DeployAfterDelay は削除し、以下のロジックを UpdateInputState で呼び出します
-
-    // 1. 生成処理（ボタンを押した瞬間）
-    private void CreateMagicCircle(int i, Color pColor)
-    {
-        GameObject circleObj = Instantiate(magicCirclePrefab, transform.position, Quaternion.identity);
-        activeCircles[i] = circleObj.GetComponent<MagicCircle>();
-        if (activeCircles[i] != null)
+        // 全アクションの入力保持状態を更新
+        for (int i = 0; i < 5; i++)
         {
-            // ★ チーム情報（myTeam）を渡して初期化
-            activeCircles[i].Initialize(pColor, myTeam);
+            isInputHeld[i] = (attackAction == i + 1);
         }
     }
-
-    // 2. 更新処理（ボタンを長押ししている間）
-    // BulletSpawner.cs の UpdateMagicCircle メソッドを以下に差し替え
-    private void UpdateMagicCircle(int i)
+    private void ExecuteSpecialMove()
     {
-        if (activeCircles[i] == null) return;
-
-        // ボタンを押している間は、まず「半分」を目指して展開
-        activeCircles[i].SetTargetScale(1.0f);
-
-        if (holdTimers[i] > longPressThreshold)
+        // ゲージが100%（満タン）のときだけ発動可能
+        if (gaugeManager != null && gaugeManager.IsFull)
         {
-            isCharging[i] = true;
+            gaugeManager.ConsumeFullGauge();
 
-            // ★ 追加：スケールが 0.6 を超えたら（半分展開がほぼ完了したら）動き出す
-            if (activeCircles[i].transform.localScale.x > 0.6f)
+            // 5つ目のスキル（超必殺技）のデータを使用
+            AttackPattern p = attackPatterns[4];
+            if (p == null) return;
+
+            Debug.Log("<color=red>Ultimate Skill: Knife Illusion!</color>");
+
+            // 全方位にナイフをバラまく例
+            foreach (ShotData data in p.multiShotData)
             {
-                moveTimers[i] += Time.deltaTime; // 移動時間をカウントアップ
-
-                Rigidbody2D rb = activeCircles[i].GetComponent<Rigidbody2D>();
-                if (rb != null)
-                {
-                    // 向きの決定（X軸のみ）
-                    float directionX = (target != null && target.position.x > transform.position.x) ? 1f : ((transform.right.x >= 0) ? 1f : -1f);
-
-                    // ★ 加速ロジック
-                    float startSpeed = 1.0f;     // 初速
-                    float acceleration = 25.0f;  // 加速度（毎秒25増加）
-                    float maxSpeed = 15.0f;      // 最高速度
-                    float currentSpeed = Mathf.Min(startSpeed + (acceleration * moveTimers[i]), maxSpeed);
-
-                    rb.linearVelocity = new Vector2(directionX * currentSpeed, 0f); // Y軸は 0 固定
-                }
+                // インデックス4はDボタン用のパラメータ
+                ExecuteShot(data, 0, 4);
             }
         }
     }
-
-    // 3. 確定処理（ボタンを離した瞬間）
-    private void FinalizeMagicCircle(int i)
+    // ★追加：すべてのリキャストを即座に完了させるメソッド
+    public void ResetAllRecasts()
     {
-        if (activeCircles[i] == null) return;
-
-        Rigidbody2D rb = activeCircles[i].GetComponent<Rigidbody2D>();
-        if (rb != null) rb.linearVelocity = Vector2.zero; // 停止
-
-        if (holdTimers[i] < longPressThreshold)
+        for (int i = 0; i < 4; i++)
         {
-            // 【単押し】自機周りに引き戻して展開
-            activeCircles[i].transform.SetParent(null); // 親子付け解除
-            activeCircles[i].Activate(2.5f, 4.0f); // 半径3.5、2秒持続
+            recastTimers[i] = 0f; // リキャストをゼロにする
         }
-        else
-        {
-            // 【長押し】離した場所で最大展開
-            activeCircles[i].transform.SetParent(null); // 親子付け解除
-            activeCircles[i].Activate(2.0f, 4.0f); // 半径4.5、3秒持続
-        }
-        moveTimers[i] = 0; // ★ リセット
-        recastTimers[i] = attackPatterns[i].recastTime; // リキャスト開始
-        activeCircles[i] = null; // 参照をクリア
     }
+    private void ExecuteDodge(int i)
+    {
+        var pattern = attackPatterns[i];
+        dodgeActiveTimer = pattern.dodgeDuration;
+        currentDodgeSpeedMultiplier = pattern.dodgeSpeedMultiplier;
 
+        DodgerAgent agent = GetComponent<DodgerAgent>();
+        if (agent != null)
+        {
+            // ★変更：無敵設定だけでなく、回避アクション全体を開始させる
+            agent.StartDodgeAction(pattern.dodgeDuration);
+        }
+        if (gaugeManager != null)
+        {
+            gaugeManager.IncreaseGauge(pattern.specialGaugeGain);
+        }
+        recastTimers[i] = pattern.recastTime;
+    }
+    public float GetCurrentSpeedMultiplier()
+    {
+        float multiplier = 1f;
+        // 回避による倍率を乗算する
+        multiplier *= currentDodgeSpeedMultiplier;
+
+        for (int i = 0; i < 4; i++)
+        {
+            if ((isFiringBurst[i] || isCharging[i]) && attackPatterns[i] != null)
+                multiplier = Mathf.Min(multiplier, attackPatterns[i].firingSpeedMultiplier);
+        }
+        return multiplier;
+    }
     private void StartBurst(int index)
     {
         isFiringBurst[index] = true;
@@ -319,40 +422,110 @@ public class BulletSpawner : MonoBehaviour
     // 195行目付近
     private void Fire(int index)
     {
-        if (attackPatterns[index] == null) return;
-
-        // スキルタイプによる分岐
-        if (attackPatterns[index].skillType == SkillType.Normal)
+        AttackPattern p = attackPatterns[index]; // 変数 p を定義
+        if (p == null) return;
+        // ★追加：スキル使用時にゲージを増やす
+        // ★修正：スロットに応じた増加量を加算
+        if (gaugeManager != null)
         {
-            // 従来の弾幕生成
-            int currentStep = attackPatterns[index].burstCount - burstRemain[index];
-            foreach (ShotData data in attackPatterns[index].multiShotData)
+            gaugeManager.IncreaseGauge(p.specialGaugeGain);
+        }
+        if (p.skillType == SkillType.Normal)
+        {
+            int currentStep = p.burstCount - burstRemain[index];
+            foreach (ShotData data in p.multiShotData)
             {
-                if (data != null) ExecuteShot(data, currentStep, index);
+                if (data != null)
+                {
+                    // ★修正：チャージショットの場合は固定角度を渡す
+                    float? angleOverride = (p.fireType == FireType.OnRelease) ? fixedChargeAngles[index] : (float?)null;
+                    ExecuteShot(data, currentStep, index, null, null, angleOverride);
+                }
             }
         }
-        else if (attackPatterns[index].skillType == SkillType.MagicCircle)
+        else if (p.skillType == SkillType.MagicCircle)
         {
-            // 魔方陣（自機/移動）のバースト生成
+            // ★ 修正：ここが抜けていました
             SpawnMagicCircleBurst(index, isLaunchedBurst[index]);
         }
-        else if (attackPatterns[index].skillType == SkillType.RemoteBarrage)
+        else if (p.skillType == SkillType.RemoteBarrage)
         {
-            // 遠隔設置魔方陣のバースト生成
-            SpawnRemoteBarrageBurst(index);
+            if (p.useMovingFire) SpawnMovingBarrageBurst(index);
+            else SpawnRemoteBarrageBurst(index);
+        }
+        else if (p.skillType == SkillType.Assault) // 突進オブジェクトの処理
+        {
+            if (p.assaultPrefab != null)
+            {
+                GameObject assaultObj = Instantiate(p.assaultPrefab, transform.position, Quaternion.identity);
+                AssaultObject script = assaultObj.GetComponent<AssaultObject>();
+                if (script != null) script.Initialize(this, myTeam, p.assaultSpeed, p.assaultDuration, p.damage);
+            }
         }
 
         burstRemain[index]--;
-        if (burstRemain[index] > 0) burstIntervalTimers[index] = attackPatterns[index].burstInterval;
+        if (burstRemain[index] > 0) burstIntervalTimers[index] = p.burstInterval;
         else StopBurstAndStartRecast(index);
+    
     }
+    public void CancelAllSkills()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            // 各種フラグのリセット
+            isCharging[i] = false;       // チャージ中断
+            isFiringBurst[i] = false;    // 連射中断
+            isInputHeld[i] = false;      // 入力保持解除
+            burstRemain[i] = 0;          // 残り弾数クリア
 
+            // 保持している魔方陣（シールド移動中など）があれば消去
+            if (activeCircles[i] != null)
+            {
+                Destroy(activeCircles[i].gameObject);
+                activeCircles[i] = null;
+            }
+        }
+    }
+    private void SpawnMovingBarrageBurst(int i)
+    {
+        // 現在のスキルデータを取得
+        AttackPattern p = attackPatterns[i];
+
+        // 目的地設定
+        Vector3 targetPos = (target != null) ? target.position : transform.position + transform.right * 10f;
+        GameObject circleObj = Instantiate(magicCirclePrefab, transform.position, Quaternion.identity);
+        circleObj.tag = "Enemy_Bullet"; // ★タグを追加
+        MagicCircle script = circleObj.GetComponent<MagicCircle>();
+
+        if (script != null)
+        {
+            Color pColor = (characterProfile != null) ? characterProfile.personalColor : Color.white;
+            script.Initialize(pColor, myTeam);
+
+            // ★修正ポイント：AttackPattern の設定値を秒数に変換して渡す
+            float interval = p.movingFireIntervalFrames / 60f;
+
+            // LaunchMovingBarrage に設定値を流し込む
+            script.LaunchMovingBarrage(
+                targetPos,
+                p.multiShotData,
+                this,
+                myTeam,
+                i,
+                p.movingFireSpeed,    // ★ インスペクターの速度を適用
+                interval,             // ★ インスペクターの間隔を適用
+                p.movingFireDuration  // ★ インスペクターの寿命を適用
+            );
+        }
+    }
     private void SpawnMagicCircleBurst(int i, bool isLaunched)
     {
         GameObject circleObj = Instantiate(magicCirclePrefab, transform.position, Quaternion.identity);
+        // ★追加：AIが認識できるようにタグを付ける
+        circleObj.tag = "Enemy_Bullet";
+
         MagicCircle script = circleObj.GetComponent<MagicCircle>();
         if (script == null) return;
-
         Color pColor = (characterProfile != null) ? characterProfile.personalColor : Color.white;
         script.Initialize(pColor, myTeam);
 
@@ -372,19 +545,46 @@ public class BulletSpawner : MonoBehaviour
         }
     }
 
+    // BulletSpawner.cs 
+
     private void SpawnRemoteBarrageBurst(int i)
     {
-        float jitter = 1.5f;
-        Vector3 randomJitter = new Vector3(Random.Range(-jitter, jitter), Random.Range(-jitter, jitter), 0);
-        Vector3 targetPos = (target != null) ? target.position + randomJitter : transform.position + transform.right * 7f;
+        Vector3 targetPos;
 
+        if (target != null)
+        {
+            // ★ 追加：フラグがONなら Xは敵、Yは最下段にする
+            if (attackPatterns[i].targetBottomY)
+            {
+                // bottomY はすでにクラス内で -5.5f と定義されています
+                targetPos = new Vector3(target.position.x, bottomY, 0);
+            }
+            else
+            {
+                // 従来の「敵付近に飛ばす」処理
+                float jitter = 1.5f;
+                Vector3 randomJitter = new Vector3(Random.Range(-jitter, jitter), Random.Range(-jitter, jitter), 0);
+                targetPos = target.position + randomJitter;
+            }
+        }
+        else
+        {
+            // ターゲットがいない場合のデフォルト位置
+            targetPos = transform.position + transform.right * 7f;
+        }
+
+        // 魔方陣の生成と飛ばす処理はそのまま維持
         GameObject circleObj = Instantiate(magicCirclePrefab, transform.position, Quaternion.identity);
+        circleObj.tag = "Enemy_Bullet"; // ★タグを追加
         MagicCircle script = circleObj.GetComponent<MagicCircle>();
         if (script != null)
         {
             Color pColor = (characterProfile != null) ? characterProfile.personalColor : Color.white;
             script.Initialize(pColor, myTeam);
-            // 敵機方向へ飛ばして弾幕展開
+
+            // ★追加：射出型（攻撃用）は弾消しをOFFにする
+            script.SetBulletClearing(false);
+
             script.LaunchToTarget(targetPos, attackPatterns[i].multiShotData, this, myTeam);
         }
     }
@@ -397,7 +597,7 @@ public class BulletSpawner : MonoBehaviour
         recastTimers[index] = attackPatterns[index].recastTime;
     }
 
-    public void ExecuteShot(ShotData data, int step, int skillIndex, Vector3? overrideOrigin = null, TeamSide? overrideTeam = null)
+    public void ExecuteShot(ShotData data, int step, int skillIndex, Vector3? overrideOrigin = null, TeamSide? overrideTeam = null, float? overrideBaseAngle = null)
     {
         if (data == null || data.bulletType == null) return;
 
@@ -406,10 +606,10 @@ public class BulletSpawner : MonoBehaviour
         switch (data.pattern)
         {
             case ShotData.PatternType.Single:
-                ShootSingle(data, origin, team); // stepを追加
+                ShootSingle(data, origin, team);
                 break;
             case ShotData.PatternType.NWay:
-                ShootExpandingNWay(data, step, currentFanAngles[skillIndex], origin, team);
+                ShootExpandingNWay(data, step, currentFanAngles[skillIndex], origin, team, overrideBaseAngle);
                 break;
             case ShotData.PatternType.AllDirections:
                 ShootAllDirections(data, origin, team, step); // stepを追加
@@ -421,11 +621,11 @@ public class BulletSpawner : MonoBehaviour
     }
 
     // 1. NWay弾の修正
-    private void ShootExpandingNWay(ShotData data, int step, float overridenSpread, Vector3 origin, TeamSide team)
+    private void ShootExpandingNWay(ShotData data, int step, float overridenSpread, Vector3 origin, TeamSide team, float? overrideBaseAngle)
     {
         // 1. 回転オフセットの計算
         float rotationOffset = data.rotationPerStep * step;
-        float baseAngle = CalculateAngle(data, origin) + rotationOffset;
+        float baseAngle = (overrideBaseAngle ?? CalculateAngle(data, origin)) + rotationOffset;
 
         // 2. NWay拡張設定（連射ステップごとの弾数と範囲の増加）の計算
         int actualCount = data.nWayCount + (data.nWayExpand != null ? data.nWayExpand.countAdd * step : 0);
@@ -600,12 +800,15 @@ public class BulletSpawner : MonoBehaviour
 
         ExecuteActualSpawn(bData, spawnPos, angle, sData, aData, overrideSpeed, team);
     }
-    private void ExecuteActualSpawn(BulletData bData, Vector3 spawnPos, float angle, spanData sData, spanData aData, float overrideSpeed, TeamSide team) // 引数に team を追加
+    private void ExecuteActualSpawn(BulletData bData, Vector3 spawnPos, float angle, spanData sData, spanData aData, float overrideSpeed, TeamSide team)
     {
         GameObject b = BulletPool.Instance.Get();
         b.transform.position = spawnPos;
 
-        // ★ 渡されたチーム情報に基づいてレイヤーを設定する
+        // ★重要: 生成された弾にタグを強制的に設定する
+        // これがないと GameObject.FindGameObjectsWithTag("Enemy_Bullet") で見つけられません
+        b.tag = "Enemy_Bullet";
+
         b.layer = LayerMask.NameToLayer(team.ToString() + "_Bullet");
 
         var bullet = b.GetComponent<EnemyBullet>();
@@ -613,8 +816,7 @@ public class BulletSpawner : MonoBehaviour
         {
             int order = GetNextOrder(bData.sizeCategory);
             float speedLimit = Mathf.Max(sData.max_, overrideSpeed);
-            // Setup時にチーム情報を渡す
-            bullet.Setup(bData, spawnPos, overrideSpeed, sData.accuracy_, speedLimit, angle, aData.accuracy_, aData.max_, order, team,this);
+            bullet.Setup(bData, spawnPos, overrideSpeed, sData.accuracy_, speedLimit, angle, aData.accuracy_, aData.max_, order, team, this);
         }
     }
 
@@ -663,17 +865,6 @@ public class BulletSpawner : MonoBehaviour
     }
     // --- ★ 復元した補助メソッド ---
 
-    public float GetCurrentSpeedMultiplier()
-    {
-        float multiplier = 1f;
-        for (int i = 0; i < 4; i++)
-        {
-            // 発射中またはチャージ中のスキルがあれば、その倍率を適用（最も低いものを優先）
-            if ((isFiringBurst[i] || isCharging[i]) && attackPatterns[i] != null)
-                multiplier = Mathf.Min(multiplier, attackPatterns[i].firingSpeedMultiplier);
-        }
-        return multiplier;
-    }
 
     public float GetRecastProgress(int index)
     {

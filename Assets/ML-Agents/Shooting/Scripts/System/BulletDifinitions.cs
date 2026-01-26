@@ -1,6 +1,6 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
-// --- —\’›ƒGƒtƒFƒNƒg‚ÌF’è‹` ---
+// --- äºˆå…†ã‚¨ãƒ•ã‚§ã‚¯ãƒˆã®è‰²å®šç¾© ---
 public enum DelayColor { RED, ORANGE, YELLOW, GREEN, AQUA, BLUE, PURPLE, WHITE }
 
 [System.Serializable]
@@ -23,7 +23,7 @@ public class NWayExpandSettings
 [System.Serializable]
 public class ShotData
 {
-    public enum PatternType { Single, NWay, AllDirections, RandomGap, None } // š RandomGap ‚ğ’Ç‰Á
+    public enum PatternType { Single, NWay, AllDirections, RandomGap, None } // â˜… RandomGap ã‚’è¿½åŠ 
     public enum AngleType { Fixed, AimAtPlayer, Random }
 
     [Header("Visual & Collision")]
@@ -37,19 +37,19 @@ public class ShotData
     public int nWayCount = 3;
     public float nWaySpread = 30f;
     public int RoundCount = 36;
-    public int speedCount = 1; // ’e”i‘¬“x‚ÌƒŒƒCƒ„[”j
-    public float speedMax = 8f; // Å‘å‘¬“xiˆê”ÔŠO‘¤‚Ì’ej
+    public int speedCount = 1; // å¼¾æ•°ï¼ˆé€Ÿåº¦ã®ãƒ¬ã‚¤ãƒ¤ãƒ¼æ•°ï¼‰
+    public float speedMax = 8f; // æœ€å¤§é€Ÿåº¦ï¼ˆä¸€ç•ªå¤–å´ã®å¼¾ï¼‰
 
     [Header("NWay Expansion")]
     public NWayExpandSettings nWayExpand;
 
-    [Header("Rotation Settings (˜AË‚Ì‰ñ“])")]
-    [Tooltip("1ƒXƒeƒbƒvi˜AËj‚²‚Æ‚ÉŠî–{Šp“x‚ğ‰½“x‰ñ“]‚³‚¹‚é‚©")]
+    [Header("Rotation Settings (é€£å°„æ™‚ã®å›è»¢)")]
+    [Tooltip("1ã‚¹ãƒ†ãƒƒãƒ—ï¼ˆé€£å°„ï¼‰ã”ã¨ã«åŸºæœ¬è§’åº¦ã‚’ä½•åº¦å›è»¢ã•ã›ã‚‹ã‹")]
     public float rotationPerStep = 0f;
-    [Tooltip("‘S•ûˆÊ’e‚Å‹ô”ŒÂ‚Ì‚É©“®‚ÅŠp“x‚ğ‚¸‚ç‚·‚©i©‹@ŠO‚µ‚ğ§Œäj")]
+    [Tooltip("å…¨æ–¹ä½å¼¾ã§å¶æ•°å€‹ã®æ™‚ã«è‡ªå‹•ã§è§’åº¦ã‚’ãšã‚‰ã™ã‹ï¼ˆè‡ªæ©Ÿå¤–ã—ã‚’åˆ¶å¾¡ï¼‰")]
     public bool useEvenOffset = true;
     [Header("Random Gap Settings")]
-    [Tooltip("ƒvƒŒƒCƒ„[ü•Ó‚Ì’e‚ğ”ò‚Î‚³‚È‚¢”ÍˆÍi“xj—áF20“x‚È‚ç¶‰E10“x‚¸‚Â‹ó‚­")]
+    [Tooltip("ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼å‘¨è¾ºã®å¼¾ã‚’é£›ã°ã•ãªã„ç¯„å›²ï¼ˆåº¦ï¼‰ä¾‹ï¼š20åº¦ãªã‚‰å·¦å³10åº¦ãšã¤ç©ºã")]
     public float gapWidth = 20f;
     [Header("Movement Settings")]
     public spanData speedData = new spanData(3f, 0.5f, 8f);
@@ -58,41 +58,63 @@ public class ShotData
     [Header("Delay Settings")]
     public int launchDelay = 0;
 
-    [Header("Launch Randomness (‰Šú’l‚Ì‚ä‚ç‚¬)")]
-    [Tooltip("”­Ë‚Ì‘¬“x‚É‰Á‚¦‚éƒ‰ƒ“ƒ_ƒ€• (}n)")]
+    [Header("Launch Randomness (åˆæœŸå€¤ã®ã‚†ã‚‰ã)")]
+    [Tooltip("ç™ºå°„æ™‚ã®é€Ÿåº¦ã«åŠ ãˆã‚‹ãƒ©ãƒ³ãƒ€ãƒ å¹… (Â±n)")]
     public float launchSpeedJitter = 0f;
-    [Tooltip("”­Ë‚ÌŠp“x‚É‰Á‚¦‚éƒ‰ƒ“ƒ_ƒ€• (}n“x)")]
+    [Tooltip("ç™ºå°„æ™‚ã®è§’åº¦ã«åŠ ãˆã‚‹ãƒ©ãƒ³ãƒ€ãƒ å¹… (Â±nåº¦)")]
     public float launchAngleJitter = 0f;
 
     [Header("Spawn Position Settings")]
     public float spawnRadius = 0f;
 }
-// enum‚ÍƒNƒ‰ƒX‚ÌŠO‚Éo‚µ‚Ä‚¨‚­‚ÆQÆ‚ªŠy‚É‚È‚è‚Ü‚·
-
-public enum SkillType { Normal, MagicCircle, RemoteBarrage } // š RemoteBarrage ‚ğ’Ç‰Á
-
+// enumã¯ã‚¯ãƒ©ã‚¹ã®å¤–ã«å‡ºã—ã¦ãŠãã¨å‚ç…§ãŒæ¥½ã«ãªã‚Šã¾ã™
+// SkillType åˆ—æŒ™å‹ã« Dodge ã‚’è¿½åŠ 
+public enum SkillType { Normal, MagicCircle, RemoteBarrage, Dodge, Assault }
 [System.Serializable]
 public class AttackPattern
 {
     public ShotData[] multiShotData;
     public float recastTime;
+    public float specialGaugeGain = 1.0f; // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã‚’è¨­å®š
     public Sprite skillIcon;
 
     [Header("Behavior Settings")]
-    // š C³F•Ï”–¼‚ğ¬•¶š‚Ì skillType ‚É•ÏX‚µ‚ÄAŒ^–¼‚Æ‚Ìd•¡‚ğ”ğ‚¯‚é
     public SkillType skillType = SkillType.Normal;
+    // â˜… è¿½åŠ ï¼šç§»å‹•ã—ãªãŒã‚‰å¼¾ã‚’æ”¾ã¤ãƒ¢ãƒ¼ãƒ‰ã‚’æœ‰åŠ¹ã«ã™ã‚‹ã‹
+    public bool useMovingFire = false;
+    [Header("Moving Barrage Settings (useMovingFireç”¨)")]
+    [Tooltip("é­”æ–¹é™£ã®ç§»å‹•é€Ÿåº¦ã€‚æ”»æ’ƒç”¨ã¯é…ãï¼ˆä¾‹: 2.0ï¼‰ã€è¨­ç½®ç”¨ã¯é€Ÿãï¼ˆä¾‹: 15.0ï¼‰")]
+    public float movingFireSpeed = 3.0f;
 
+    [Tooltip("é­”æ–¹é™£ãŒæ¶ˆæ»…ã™ã‚‹ã¾ã§ã®æ™‚é–“ï¼ˆç§’ï¼‰")]
+    public float movingFireDuration = 4.0f;
+
+    [Tooltip("å¼¾ã‚’å‡ºã™é–“éš”ï¼ˆãƒ•ãƒ¬ãƒ¼ãƒ æ•°ï¼‰ã€‚5ã€œ15ç¨‹åº¦ãŒãŠã™ã™ã‚")]
+    public int movingFireIntervalFrames = 10;
     [Header("Burst Settings")]
     public int burstCount = 1;
     public float burstInterval = 0.1f;
+    // AttackPattern ã‚¯ãƒ©ã‚¹å†…ã«è¿½åŠ 
+    [Header("Assault Settings")]
+    [Tooltip("ã“ã®ã‚¹ã‚­ãƒ«ã®åŸºæœ¬ãƒ€ãƒ¡ãƒ¼ã‚¸é‡ï¼ˆAssaultã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆãªã©ã§ä½¿ç”¨ï¼‰")]
+    public int damage = 10; // â˜…è¿½åŠ ï¼šã“ã“ãŒä¸è¶³ã—ã¦ã„ã¾ã—ãŸ
+    public GameObject assaultPrefab; // é­”æ–¹é™£ã¨ã¯åˆ¥ã®è¦‹ãŸç›®ã®ãƒ—ãƒ¬ãƒãƒ–
+    public float assaultSpeed = 20f; // ã‹ãªã‚Šé€Ÿã‚ãŒãŠã™ã™ã‚
+    public float assaultDuration = 1.5f;
 
     [Header("Input & Speed Settings")]
     public FireType fireType = FireType.Instant;
 
-    [Tooltip("true‚È‚ç‰Ÿ‚µ‚Á‚Ï‚È‚µ‚Å˜AËAfalse‚È‚ç‰Ÿ‚µ’¼‚µ‚ª•K—v")]
+    public bool targetBottomY = false; // â˜… ONã«ã™ã‚‹ã¨æ•µã®è¶³å…ƒï¼ˆæœ€ä¸‹æ®µï¼‰ã‚’ç‹™ã†
+
+    [Header("Dodge Skill Settings")]
+    public float dodgeDuration = 0.5f;        // å›é¿ï¼ˆç„¡æ•µï¼‰æ™‚é–“
+    public float dodgeSpeedMultiplier = 2.0f; // å›é¿ä¸­ã®ç§»å‹•é€Ÿåº¦å€ç‡
+
+    [Tooltip("trueãªã‚‰æŠ¼ã—ã£ã±ãªã—ã§é€£å°„ã€falseãªã‚‰æŠ¼ã—ç›´ã—ãŒå¿…è¦")]
     public bool isAutoRepeat = true;
 
     [Range(0f, 1f)]
-    [Tooltip("”­Ë’†‚ÌˆÚ“®‘¬“x”{—¦ (1.0‚Å“™‘¬A0.5‚Å50%Œ¸‘¬A0‚Å’â~)")]
+    [Tooltip("ç™ºå°„ä¸­ã®ç§»å‹•é€Ÿåº¦å€ç‡ (1.0ã§ç­‰é€Ÿã€0.5ã§50%æ¸›é€Ÿã€0ã§åœæ­¢)")]
     public float firingSpeedMultiplier = 1.0f;
 }

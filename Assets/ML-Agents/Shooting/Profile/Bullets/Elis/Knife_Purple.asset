@@ -17,7 +17,7 @@ MonoBehaviour:
   bulletSprite: {fileID: 1943844476, guid: ea436b4f130ae0340b1e25b221fe755b, type: 3}
   deathEffectPrefab: {fileID: 1789245602446957592, guid: 7476b93536ca65d46bfda9dd5a92ea0a, type: 3}
   sizeCategory: 2
-  damage: 10
+  damage: 15
   delayColor: 6
   isAdditive: 0
   useLaunchDelayEffect: 1
@@ -46,6 +46,8 @@ MonoBehaviour:
       countAdd: 0
       spreadAdd: 0
     rotationPerStep: 0
+    useEvenOffset: 1
+    gapWidth: 20
     speedData:
       default_: 3
       accuracy_: 0.5
