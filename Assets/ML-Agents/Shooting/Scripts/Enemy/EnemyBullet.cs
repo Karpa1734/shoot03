@@ -211,9 +211,8 @@ public class EnemyBullet : MonoBehaviour
             // 次のステップのデータを取得
             var nextStep = originData.changeSteps[nextStepIndex];
 
-            // 設定されたフレーム数に到達したか判定
-            // (BulletChangeStep クラスに time または durationFrames という変数がある想定です)
-            if (framesSinceSpawn >= nextStep.time)
+            // .time ではなく、クラス定義に合わせた .triggerFrame を使用する
+            if (framesSinceSpawn >= nextStep.triggerFrame)
             {
                 ApplyNextStep(nextStep);
                 nextStepIndex++;
